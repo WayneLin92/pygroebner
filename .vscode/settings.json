@@ -1,0 +1,25 @@
+{
+    "cSpell.words": [
+        "algs",
+        "binom",
+        "clsname",
+        "dtuple",
+        "heapq",
+        "inplace",
+        "mday",
+        "monic",
+        "multinomial",
+        "mymath",
+        "rels",
+        "summands"
+    ],
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
+}
