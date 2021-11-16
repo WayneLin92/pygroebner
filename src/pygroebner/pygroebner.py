@@ -919,12 +919,13 @@ def new_alg(*, key_mo: str | Callable = None, pred=None) -> Type[AlgGb]:
     When `key_mo=None`, use revlex ordering by default."""
     class_name = f"AlgGb_{AlgGb._index_subclass}"
     AlgGb._index_subclass += 1
-    if key_mo == "Lex" or key_mo == "lex":
-        key_mo = key_lex
-    elif key_mo == "Revlex" or key_mo == "revlex":
-        key_mo = None
-    else:
-        raise BA.MyError("unknown monomial ordering")
+    if type(key_mo) is str:
+        if key_mo == "Lex" or key_mo == "lex":
+            key_mo = key_lex
+        elif key_mo == "Revlex" or key_mo == "revlex":
+            key_mo = None
+        else:
+            raise BA.MyError("unknown monomial ordering")
     dct = {
         "gens": {},
         "rels": {},
@@ -938,7 +939,7 @@ def new_alg(*, key_mo: str | Callable = None, pred=None) -> Type[AlgGb]:
 
 def load_alg(
     filename, tablename, *, key_mo=None, pred=None
-) -> Type["AlgGb"] | Type["DgaGb"]:
+) -> Type[AlgGb]:
     """load an algebra from a database."""
     conn = sqlite3.connect(filename)
     c = conn.cursor()
@@ -1032,3 +1033,5 @@ def gcd_nonzero_dtuple(d1, d2):
         if gen in d1_dict:
             return True
     return False
+
+__all__ = ['new_alg', 'load_alg', 'AlgGb', 'DgaGb']
