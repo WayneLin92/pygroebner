@@ -10,6 +10,7 @@
         "monic",
         "multinomial",
         "mymath",
+        "pygroebner",
         "rels",
         "summands"
     ],

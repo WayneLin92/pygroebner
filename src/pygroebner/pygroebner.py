@@ -81,14 +81,14 @@ def key_lex(m):
 class AlgGb(BA.AlgebraMod2):
     """A factory for algebras based on Groebner basis.
 
-    `AlgGb.new_alg()` creates a new algebra with
-    its own gens and relations.
+    `new_alg()` creates a new algebra which is a subclass of `AlgGb` nad has
+    its own generators and relations.
     """
 
     gens = None  # type: dict[int, Gen]
     rels = None  # type: dict[tuple, set]
     _rels_buffer = None  # type: dict[int, list[set]]
-    key = None  # type: Callable[[tuple], Any]
+    key_mo = None  # type: Callable[[tuple], Any]
     pred = None  # type: Callable[[tuple], Any]
     dim_grading = None  # type: int
 
@@ -97,7 +97,7 @@ class AlgGb(BA.AlgebraMod2):
     @classmethod
     def copy_alg(cls) -> Type[AlgGb]:
         """Return a copy of current algebra."""
-        A = new_alg(key=cls.key, pred=cls.pred)
+        A = new_alg(key_mo=cls.key_mo, pred=cls.pred)
         A.gens = cls.gens.copy()
         A.rels = copy.deepcopy(cls.rels)
         A._rels_buffer = copy.deepcopy(cls._rels_buffer)
@@ -133,7 +133,7 @@ class AlgGb(BA.AlgebraMod2):
         sql_mo = {None: "Revlex", "Lex": "Lex"}
         info = {
             "version": "0.0",
-            "mo": (sql_mo[cls.key] if cls.key in sql_mo else ""),
+            "mo": (sql_mo[cls.key_mo] if cls.key_mo in sql_mo else ""),
             "date": sql_date,
             "grading": ",".join(grading),
         }
@@ -161,8 +161,8 @@ class AlgGb(BA.AlgebraMod2):
         result = "\\section{Gens}\n\n"
         gens = defaultdict(list)
         for g in cls.gens.values():
-            result += f"{g.deg} {g.name}"
-        result += "\\section{Relations}\n\n"
+            result += f"${g.name}$ {g.deg}\n\n"
+        result += "\n\\section{Relations}\n\n"
         for m in cls.rels:
             result += f"${cls(m)} = {cls(cls.rels[m])}$\n\n"
         return result
@@ -175,7 +175,7 @@ class AlgGb(BA.AlgebraMod2):
             "gens": {i: DgaGen(*g, None) for i, g in cls.gens.items()},
             "rels": copy.deepcopy(cls.rels),
             "_rels_buffer": copy.deepcopy(cls._rels_buffer),
-            "key": cls.key,
+            "key_mo": cls.key_mo,
             "pred": cls.pred,
             "dim_grading": cls.dim_grading,
             "deg_diff": Vector(deg_diff),
@@ -192,7 +192,8 @@ class AlgGb(BA.AlgebraMod2):
     def str_sqlite3_data(cls, data: set):
         """Convert self to a string to be stored in sqlite."""
         return ";".join(
-            cls.str_sqlite3_mon(mon) for mon in sorted(data, key=cls.key, reverse=True)
+            cls.str_sqlite3_mon(mon)
+            for mon in sorted(data, key=cls.key_mo, reverse=True)
         )
 
     @classmethod
@@ -220,7 +221,7 @@ class AlgGb(BA.AlgebraMod2):
     # ---------- AlgebraMod2 ----------
     @classmethod
     def mul_mons(cls, mon1: tuple, mon2: tuple):
-        m = add_dtuple(mon1, mon2) 
+        m = add_dtuple(mon1, mon2)
         return cls.reduce_data({m})
 
     @classmethod
@@ -288,7 +289,7 @@ class AlgGb(BA.AlgebraMod2):
                 return cls(m).reduce()
         else:
             raise BA.MyKeyError(f"No generator named {k}")
-    
+
     @classmethod
     def add_gens(cls, name_deg_s):
         """Add gens. name_deg_s is a list of tuples (name, deg)."""
@@ -346,10 +347,10 @@ class AlgGb(BA.AlgebraMod2):
         cls.gens[i] = Gen(new_name, g.deg)
 
     @classmethod
-    def reorder_gens(cls, index_map: dict = None, key=None):
+    def reorder_gens(cls, index_map: dict = None, key_mo=None):
         """Reorganize the relations by a new ordering of gens and a new key function.
         The old i'th generator is the new `index_map[i]`'th generator."""
-        A = AlgGb.new_alg(pred=cls.pred, key=key)
+        A = new_alg(pred=cls.pred, key_mo=key_mo)
         num_gens = len(cls.gens)
         if index_map:
 
@@ -448,8 +449,8 @@ class AlgGb(BA.AlgebraMod2):
     @classmethod
     def get_lead(cls, data):
         """Return the leading term of `data`."""
-        return max(data, key=cls.key) if cls.key else max(data)
-    
+        return max(data, key=cls.key_mo) if cls.key_mo else max(data)
+
     @classmethod
     def reduce_data(cls, data: set) -> set:
         """Return reduced `data`. `data` will not be changed."""
@@ -600,14 +601,18 @@ class AlgGb(BA.AlgebraMod2):
         """Return relations among elements: $\\sum a_ie_i=0$."""
         A = cls.copy_alg()
         index = max(A.gens, default=-1)
-        if cls.key:
-            A.key = lambda _m: (
+        if cls.key_mo:
+            A.key_mo = lambda _m: (
                 not (_m1 := _m[bisect_left(_m, (index, 0)) :]),
                 _m1,
-                cls.key(_m),
+                cls.key_mo(_m),
             )
         else:
-            A.key = lambda _m: (not (_m1 := _m[bisect_left(_m, (index, 0)) :]), _m1, _m)
+            A.key_mo = lambda _m: (
+                not (_m1 := _m[bisect_left(_m, (index, 0)) :]),
+                _m1,
+                _m,
+            )
         rels_new = []
         for ele, name in ele_names:
             x = A.add_gen(name, ele.deg())
@@ -637,17 +642,17 @@ class AlgGb(BA.AlgebraMod2):
             for m2 in ele2.data:
                 a.append((m2, name1, deg1))
             annilators.append(a)
-        if cls.key:
+        if cls.key_mo:
 
             def key(_m):
-                return A.deg0_mon(_m[bisect_left(_m, (index, 0)) :]), cls.key(_m)
+                return A.deg0_mon(_m[bisect_left(_m, (index, 0)) :]), cls.key_mo(_m)
 
         else:
 
             def key(_m):
                 return A.deg0_mon(_m[bisect_left(_m, (index, 0)) :]), _m
 
-        A = A.reorder_gens(key=key)
+        A = A.reorder_gens(key_mo=key)
         annilators = [
             [(cls(A.reduce({_m})), name, deg) for _m, name, deg in a]
             for a in annilators
@@ -667,7 +672,7 @@ class AlgGb(BA.AlgebraMod2):
         return Latex(result)
 
     @classmethod
-    def subalgebra(cls, ele_names: list[tuple["AlgGb", str]], *, key=None):
+    def subalgebra(cls, ele_names: list[tuple["AlgGb", str]], *, key_mo=None):
         """Return the subalgebra generated by `ele_names`."""
         A = cls.copy_alg()
         index = max(A.gens, default=-1)
@@ -676,17 +681,17 @@ class AlgGb(BA.AlgebraMod2):
             _m1, _m2 = _m[: (i := bisect_left(_m, (index, 0)))], _m[i:]
             return (
                 cls.deg0_mon(_m1),
-                (cls.key(_m1) if cls.key else _m1),
-                (key(_m2) if key else _m2),
+                (cls.key_mo(_m1) if cls.key_mo else _m1),
+                (key_mo(_m2) if key_mo else _m2),
             )
 
-        A.key = key1
+        A.key_mo = key1
         for ele, name in ele_names:
             x = A.add_gen(name, ele.deg())
             A.add_rel(x + ele)
         A.add_rels_buffer()
         A.gens = {i: v for i, v in A.gens.items() if i > index}
-        A.key = key
+        A.key_mo = key_mo
         rels, A.rels = A.rels, {}
         for m in rels:
             if m[0][0] > index:
@@ -732,7 +737,7 @@ class DgaGb(AlgGb):
             "gens": cls.gens.copy(),
             "rels": copy.deepcopy(cls.rels),
             "_rels_buffer": copy.deepcopy(cls._rels_buffer),
-            "key": cls.key,
+            "key_mo": cls.key_mo,
             "pred": cls.pred,
             "deg_diff": cls.deg_diff,
         }
@@ -900,25 +905,31 @@ class DgaGb(AlgGb):
             cls.determine_diff(i, basis, image_gens)
 
     @classmethod
-    def print_latex_alg(cls, show_gb=False):
+    def latex_alg(cls, show_gb=False):
         """For latex."""
-        super().print_latex_alg(show_gb)
-        print("\\section{Differentials}\n")
+        result = super().latex_alg(show_gb)
+        result += "\\section{Differentials}\n\n"
         for gen in cls.gens.values():
-            print(f"$d({gen.name})={cls(gen.diff)}$\\vspace{{3pt}}\n")
+            result += f"$d({gen.name})={cls(gen.diff)}$\\vspace{{3pt}}\n\n"
 
 
-def new_alg(*, key=None, pred=None) -> Type[AlgGb]:
+def new_alg(*, key_mo: str | Callable = None, pred=None) -> Type[AlgGb]:
     """Return a dynamically created subclass of AlgGb.
 
-    When key=None, use revlex ordering by default."""
+    When `key_mo=None`, use revlex ordering by default."""
     class_name = f"AlgGb_{AlgGb._index_subclass}"
     AlgGb._index_subclass += 1
+    if key_mo == "Lex" or key_mo == "lex":
+        key_mo = key_lex
+    elif key_mo == "Revlex" or key_mo == "revlex":
+        key_mo = None
+    else:
+        raise BA.MyError("unknown monomial ordering")
     dct = {
         "gens": {},
         "rels": {},
         "_rels_buffer": defaultdict(list),
-        "key": key,
+        "key_mo": key_mo,
         "pred": pred or pred_always_true,
         "dim_grading": None,
     }
@@ -943,18 +954,20 @@ def load_alg(
                 mo == key_lex
             else:
                 raise BA.MyError("Can not determine the key function")
-        grading = get_one_element(c.execute('SELECT value FROM info WHERE key="grading"'))[
-            0
-        ]
+        grading = get_one_element(
+            c.execute('SELECT value FROM info WHERE key="grading"')
+        )[0]
 
-        A = new_alg(key=mo, pred=pred)
+        A = new_alg(key_mo=mo, pred=pred)
         A.dim_grading = grading.count(",") + 1
         if version == "0.0":
             for id, name, *deg in c.execute(
                 f"SELECT gen_id, gen_name, {grading} FROM {tablename}_generators ORDER BY gen_id"
             ):
                 A.gens[id] = Gen(name, Vector(deg))
-            for m, b in c.execute(f"SELECT leading_term, basis FROM {tablename}_relations"):
+            for m, b in c.execute(
+                f"SELECT leading_term, basis FROM {tablename}_relations"
+            ):
                 A.rels[AlgGb.mon_sqlite3(m)] = AlgGb.data_sqlite3(b)
     else:
         raise BA.MyError("Version unknown")
@@ -965,10 +978,10 @@ def load_alg(
     return A
 
 
-def new_dga(*, key=None, pred=None, deg_diff=None) -> Type[DgaGb]:
+def new_dga(*, key_mo=None, pred=None, deg_diff=None) -> Type[DgaGb]:
     """Return a dynamically created subclass of GbDga.
 
-    When key=None, use revlex ordering by default."""
+    When key_mo=None, use revlex ordering by default."""
     class_name = f"GbDga_{DgaGb._index_subclass}"
     DgaGb._index_subclass += 1
     if deg_diff is not None:
@@ -979,7 +992,7 @@ def new_dga(*, key=None, pred=None, deg_diff=None) -> Type[DgaGb]:
         "gens": {},
         "rels": {},
         "_rels_buffer": {},
-        "key": key,
+        "key_mo": key_mo,
         "pred": pred or pred_always_true,
         "dim_grading": None,
         "deg_diff": deg_diff,

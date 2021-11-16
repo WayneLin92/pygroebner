@@ -8,7 +8,7 @@ sys.path.append(src_dir)
 class GroebnerTestCase(unittest.TestCase):
     def setUp(self):
         print(sys.path)
-        from groebner import new_alg
+        from pygroebner import new_alg
         from itertools import permutations
 
         self.new_alg = new_alg
@@ -73,7 +73,7 @@ class GroebnerTestCase(unittest.TestCase):
             for i in range(n_max + 1 - d):
                 j = i + d
                 ele_names.append((R(i, j) * R(i, j), f"b_{{{i}{j}}}"))
-        HX = E1.subalgebra(ele_names, key=E1.key)
+        HX = E1.subalgebra(ele_names, key_mo=E1.key_mo)
         HX.reduce_rels()
         self.assertEqual(15, len(HX.rels))
 
