@@ -244,6 +244,9 @@ class AlgGb(BA.AlgebraMod2):
         else:
             return f"{clsname}.unit()"
 
+    def _sorted_mons(self) -> list:
+        return sorted(self.data, key=self.key_mo, reverse=True)
+
     # ---------- Degree ----------
     @classmethod
     def deg_mon(cls, mon: tuple) -> Vector:
@@ -347,9 +350,11 @@ class AlgGb(BA.AlgebraMod2):
         cls.gens[i] = Gen(new_name, g.deg)
 
     @classmethod
-    def reorder_gens(cls, index_map: dict = None, key_mo=None):
+    def reorder_gens(cls, index_map: dict = None, key_mo=None) -> Type[AlgGb]:
         """Reorganize the relations by a new ordering of gens and a new key function.
-        The old i'th generator is the new `index_map[i]`'th generator."""
+        The old i'th generator is the new `index_map[i]`'th generator.
+        
+        Return the result as a new algebra."""
         A = new_alg(pred=cls.pred, key_mo=key_mo)
         num_gens = len(cls.gens)
         if index_map:
@@ -364,9 +369,10 @@ class AlgGb(BA.AlgebraMod2):
             for i, fi in index_map.items():
                 index_map_inv[fi] = i
             A.gens = {index_map_inv[i]: cls.gens[i] for i in cls.gens}
+            A.dim_grading = cls.dim_grading
         else:
             A.gens = cls.gens.copy()
-        A.add_rels_data(rels_A, clear_cache=True)
+        A.add_rels_data(rels_A)
         return A
 
     def is_gen(self):
@@ -702,7 +708,7 @@ class AlgGb(BA.AlgebraMod2):
         A.add_rels_buffer()
         return A
 
-    def evaluation(self, image_gens: dict[str, "AlgGb"]):
+    def evaluation(self, image_gens: dict[str, AlgGb]):
         """Return f(self) where f is an algebraic map determined by `image_gens`."""
         for v in image_gens.values():
             R = type(v)
@@ -1034,4 +1040,4 @@ def gcd_nonzero_dtuple(d1, d2):
             return True
     return False
 
-__all__ = ['new_alg', 'load_alg', 'AlgGb', 'DgaGb']
+__all__ = ['new_alg', 'load_alg', 'AlgGb', 'DgaGb', 'pred_d0', 'pred_di', 'Gen', 'DgaGen']
